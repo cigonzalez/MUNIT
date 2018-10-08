@@ -103,10 +103,11 @@ class AdaINGen(nn.Module):
 
         # content encoder
         self.enc_content = ContentEncoder(n_downsample, n_res, input_dim, dim, 'in', activ, pad_type=pad_type)
-        self.dec = Decoder(n_downsample, n_res, self.enc_content.output_dim, input_dim, res_norm='adain', activ=activ, pad_type=pad_type)
+        # input dimension changed
+        self.dec = Decoder(n_downsample, n_res, self.enc_content.output_dim+1, input_dim, res_norm='in', activ=activ, pad_type=pad_type)
 
         # MLP to generate AdaIN parameters
-        self.mlp = MLP(style_dim, self.get_num_adain_params(self.dec), mlp_dim, 3, norm='none', activ=activ)
+        # self.mlp = MLP(style_dim, self.get_num_adain_params(self.dec), mlp_dim, 3, norm='none', activ=activ)
 
     def forward(self, images):
         # reconstruct an image
@@ -122,9 +123,12 @@ class AdaINGen(nn.Module):
 
     def decode(self, content, style):
         # decode content and style codes to an image
-        adain_params = self.mlp(style)
-        self.assign_adain_params(adain_params, self.dec)
-        images = self.dec(content)
+        # adain_params = self.mlp(style)
+        # self.assign_adain_params(adain_params, self.dec)
+
+        # content and style  codes concatenation
+        encoder_output =  torch.cat((content, style.view(1, 1, 64, 64)), 1)
+        images = self.dec(encoder_output)
         return images
 
     def assign_adain_params(self, adain_params, model):
@@ -221,7 +225,7 @@ class ContentEncoder(nn.Module):
         return self.model(x)
 
 class Decoder(nn.Module):
-    def __init__(self, n_upsample, n_res, dim, output_dim, res_norm='adain', activ='relu', pad_type='zero'):
+    def __init__(self, n_upsample, n_res, dim, output_dim, res_norm='in', activ='relu', pad_type='zero'):
         super(Decoder, self).__init__()
 
         self.model = []
